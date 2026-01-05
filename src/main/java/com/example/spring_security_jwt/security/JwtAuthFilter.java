@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder; // 핵심 저장소 :contentReference[oaicite:9]{index=9}
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -35,15 +36,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String raw = header.substring("Bearer ".length()).trim();
 
         if (blacklistService.isBlacklisted(raw)) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "TOKEN_BLACKLISTED");
-            return;
+            SecurityContextHolder.clearContext();
+            throw new BadCredentialsException("TOKEN_BLACKLISTED");
         }
 
         try {
             var auth = authenticationManager.authenticate(JwtAuthenticationToken.unauthenticated(raw));
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (Exception ex) {
-            // EntryPoint에서 처리되도록 그냥 SecurityContext 비워둠
             SecurityContextHolder.clearContext();
         }
 

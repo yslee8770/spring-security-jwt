@@ -4,10 +4,13 @@ import com.example.spring_security_jwt.domain.AppUser;
 import com.example.spring_security_jwt.domain.RefreshToken;
 import com.example.spring_security_jwt.repository.RefreshTokenRepository;
 import com.example.spring_security_jwt.repository.UserRepository;
+import com.example.spring_security_jwt.security.JwtProperties;
 import com.example.spring_security_jwt.security.JwtTokenService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,17 +24,24 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtTokenService tokenService;
     private final BlacklistService blacklistService;
+    private final JwtDecoder jwtDecoder;
+    private final JwtProperties jwtProperties;
 
     public AuthService(AuthenticationManager authenticationManager,
                        UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        JwtTokenService tokenService,
-                       BlacklistService blacklistService) {
+                       BlacklistService blacklistService,
+                       JwtDecoder jwtDecoder,
+                       JwtProperties jwtProperties
+    ) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.tokenService = tokenService;
         this.blacklistService = blacklistService;
+        this.jwtDecoder = jwtDecoder;
+        this.jwtProperties = jwtProperties;
     }
 
     @Transactional
@@ -51,20 +61,25 @@ public class AuthService {
         // refresh 저장(해시)
         var refreshHash = JwtTokenService.sha256Hex(pair.refreshToken());
         // 같은 refreshHash가 있으면 재사용 위험 → unique로 막힘
-        refreshTokenRepository.save(new RefreshToken(user.getId(), refreshHash, Instant.now().plusSeconds(14L * 24 * 3600)));
+        refreshTokenRepository.save(new RefreshToken(user.getId(), refreshHash, Instant.now().plusSeconds(jwtProperties.refreshTtlSeconds())));
 
         return pair;
     }
 
     @Transactional
     public JwtTokenService.TokenPair refresh(String refreshToken) {
+        Jwt jwt = decodeAndValidateRefresh(refreshToken);
         String hash = JwtTokenService.sha256Hex(refreshToken);
         RefreshToken saved = refreshTokenRepository.findByTokenHash(hash).orElseThrow();
         if (saved.isRevoked() || Instant.now().isAfter(saved.getExpiresAt())) {
             throw new IllegalStateException("REFRESH_INVALID");
         }
 
-        // 회전: 기존 revoke 후 새 refresh 발급
+        Long uid = claimAsLong(jwt, "uid");
+        if (uid != null && !uid.equals(saved.getUserId())) {
+            throw new IllegalStateException("REFRESH_INVALID");
+        }
+
         saved.revoke();
 
         AppUser user = userRepository.findById(saved.getUserId()).orElseThrow();
@@ -77,12 +92,34 @@ public class AuthService {
                 .toArray(String[]::new);
 
         var pair = tokenService.mint(user.getId(), user.getUsername(), authorities);
-        refreshTokenRepository.save(new RefreshToken(user.getId(), JwtTokenService.sha256Hex(pair.refreshToken()),
-                Instant.now().plusSeconds(14L * 24 * 3600)));
+        refreshTokenRepository.save(new RefreshToken(
+                user.getId(),
+                JwtTokenService.sha256Hex(pair.refreshToken()),
+                Instant.now().plusSeconds(jwtProperties.refreshTtlSeconds())
+        ));
         return pair;
     }
 
     public void logout(String accessToken) {
         blacklistService.blacklist(accessToken);
+    }
+
+    private Jwt decodeAndValidateRefresh(String refreshToken) {
+        try {
+            Jwt jwt = jwtDecoder.decode(refreshToken);
+            String typ = jwt.getClaimAsString("typ");
+            if (!"refresh".equals(typ)) throw new IllegalStateException("REFRESH_INVALID");
+            return jwt;
+        } catch (Exception e) {
+            throw new IllegalStateException("REFRESH_INVALID");
+        }
+    }
+
+    private static Long claimAsLong(Jwt jwt, String name) {
+        Object v = jwt.getClaim(name);
+        if (v == null) return null;
+        if (v instanceof Number n) return n.longValue();
+        try { return Long.parseLong(String.valueOf(v)); }
+        catch (Exception ignore) { return null; }
     }
 }

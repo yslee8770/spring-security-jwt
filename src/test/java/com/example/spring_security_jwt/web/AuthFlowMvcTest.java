@@ -112,4 +112,18 @@ class AuthFlowMvcTest {
         JsonNode json = om.readTree(resp);
         return json.get("accessToken").asText();
     }
+
+    @Test
+    void login_wrong_password_returns_401_json() throws Exception {
+        var loginJson = """
+            {"username":"admin","password":"wrong"}
+            """;
+
+        mvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.code").value("AUTH_FAILED"));
+    }
 }
