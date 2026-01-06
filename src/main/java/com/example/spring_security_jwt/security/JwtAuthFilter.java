@@ -36,8 +36,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String raw = header.substring("Bearer ".length()).trim();
 
         if (blacklistService.isBlacklisted(raw)) {
+            request.setAttribute(SecurityErrorCodes.ATTR_AUTH_ERROR_CODE, SecurityErrorCodes.TOKEN_BLACKLISTED);
             SecurityContextHolder.clearContext();
-            throw new BadCredentialsException("TOKEN_BLACKLISTED");
+            chain.doFilter(request, response);
+            return;
         }
 
         try {

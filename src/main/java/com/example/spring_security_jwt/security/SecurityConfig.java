@@ -70,8 +70,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder(SecretKey key) {
-        return NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
+    public JwtDecoder jwtDecoder(JwtProperties props) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey(props))
+                .build();
+
+        decoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(props.issuer()));
+        return decoder;
     }
 
     @Bean

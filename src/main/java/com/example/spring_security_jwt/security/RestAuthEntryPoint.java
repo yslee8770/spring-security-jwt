@@ -17,8 +17,21 @@ public class RestAuthEntryPoint implements AuthenticationEntryPoint {
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
             throws IOException {
+
+        String code = (String) request.getAttribute(SecurityErrorCodes.ATTR_AUTH_ERROR_CODE);
+        if (code == null || code.isBlank()) code = SecurityErrorCodes.UNAUTHORIZED;
+
+        String message = createErrorMessage(code);
+
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        om.writeValue(response.getWriter(), new ErrorResponse("UNAUTHORIZED", "Authentication required"));
+        om.writeValue(response.getWriter(), new ErrorResponse(code, message));
+    }
+
+    private String createErrorMessage(String code) {
+        if (code.equals(SecurityErrorCodes.TOKEN_BLACKLISTED)) {
+            return "Token is blacklisted";
+        }
+        return "Authentication required";
     }
 }
