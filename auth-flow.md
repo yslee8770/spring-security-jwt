@@ -20,7 +20,7 @@
 
 ---
 
-## 1) SecurityFilterChain 구성: “누가 401/403을 내리나?”
+## 1) SecurityFilterChain 구성: “누가 401/403을 내리나나”
 
 ### 1-1. URL 인가 규칙 (SecurityConfig#filterChain)
 - GET /health -> permitAll
@@ -46,9 +46,9 @@
 
 ---
 
-## 2) “JWT 인증”은 정확히 어디서 일어나나?
+## 2) “JWT 인증”은 정확히 어디서 일어나나
 
-### 2-1. 필터 위치: JwtAuthFilter는 어디에 끼워져 있나?
+### 2-1. 필터 위치: JwtAuthFilter는 어디에 끼워져 있나
 - SecurityConfig#filterChain 에서:
   - http.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
@@ -125,7 +125,7 @@
 
 ---
 
-## 4) AuthenticationManager는 어떤 Provider를 타나?
+## 4) AuthenticationManager는 어떤 Provider를 타나
 
 이 레포는 AuthenticationManager를 직접 구성한다.
 
@@ -147,7 +147,7 @@
 
 ---
 
-## 5) JWT 검증(서명/만료/issuer)은 어디에서 이뤄지나?
+## 5) JWT 검증(서명/만료/issuer)은 어디에서 이뤄지나
 
 ### 5-1. JwtDecoder 구성 (SecurityConfig#jwtDecoder)
 - NimbusJwtDecoder.withSecretKey(jwtSecretKey(props)).build()
@@ -179,7 +179,7 @@
 
 ---
 
-## 6) “로그인”은 어디서 처리되고, 어떤 토큰을 발급하나?
+## 6) “로그인”은 어디서 처리되고, 어떤 토큰을 발급하나
 
 ### 6-1. /auth/login API (AuthController#login)
 - com.example.spring_security_jwt.web.AuthController#login
@@ -205,7 +205,7 @@
 
 ---
 
-## 7) Refresh Token Rotation은 어디서 막히나?
+## 7) Refresh Token Rotation은 어디서 막히나
 
 ### 7-1. /auth/refresh API
 - com.example.spring_security_jwt.web.AuthController#refresh
@@ -238,7 +238,7 @@
 
 ---
 
-## 8) Logout(블랙리스트)는 어디서 적용되나?
+## 8) Logout(블랙리스트)는 어디서 적용되나
 
 ### 8-1. /auth/logout API
 - com.example.spring_security_jwt.web.AuthController#logout
@@ -258,7 +258,7 @@
 
 ---
 
-## 9) 인가(Authorization)는 어디서 나뉘나? (401 vs 403)
+## 9) 인가(Authorization)는 어디서 나뉘나 (401 vs 403)
 
 ### 9-1. 401 (미인증)
 - 토큰이 없거나 / 토큰이 유효하지 않아 SecurityContext에 Authentication이 없는 상태에서
